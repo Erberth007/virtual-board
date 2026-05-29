@@ -1,0 +1,22 @@
+<RCC>
+    <qresource prefix="/">
+        <file>src/icons/rotate-left-solid-full.svg</file>
+        <file>src/icons/rotate-right-solid-full.svg</file>
+        <file>src/icons/quit-icon.svg</file>
+        <file>src/icons/menu-icon.svg</file>
+        <file>src/icons/001_hand_tool.svg</file>
+        <file>src/icons/002_selection_tool.svg</file>
+        <file>src/icons/003_rectangle_tool.svg</file>
+        <file>src/icons/004_ellipse_tool.svg</file>
+        <file>src/icons/005_arrow_tool.svg</file>
+        <file>src/icons/006_line_tool.svg</file>
+        <file>src/icons/007_pen_tool.svg</file>
+        <file>src/icons/008_text_tool.svg</file>
+        <file>src/icons/009_imagen_tool.svg</file>
+        <file>src/icons/010_eraser_tool.svg</file>
+        <file>src/icons/011_clear_tool.svg</file>
+        <file>src/icons/new_page.svg</file>
+        <file>src/icons/next_page.svg</file>
+        <file>src/icons/prev_page.svg</file>
+    </qresource>
+</RCC>
