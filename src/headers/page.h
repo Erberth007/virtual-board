@@ -15,6 +15,9 @@ class Page : public QObject {
     QGraphicsScene* scene() const { return m_scene; }
     QUndoStack* undoStack() const { return m_undoStack; }
 
+    double getZoomFactor() const { return m_zoomFactor; }
+    void setZoomFactor(double factor) { m_zoomFactor = factor; }
+
     // En el futuro, aquí podemos meter métodos de persistencia por página:
     // void saveToFile(const QString &path);
     // void loadFromFile(const QString &path);
@@ -22,6 +25,7 @@ class Page : public QObject {
   private:
     QGraphicsScene *m_scene = nullptr;
     QUndoStack *m_undoStack = nullptr;
+    double m_zoomFactor = 1.0;
 };
 
 #endif // PAGE_H

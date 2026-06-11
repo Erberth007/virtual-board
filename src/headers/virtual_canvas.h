@@ -76,7 +76,6 @@ class VirtualCanvas : public QGraphicsView {
     void createLaserPointer();
 
     // zoom
-    double m_zoomFactor = 1.0;
     static constexpr double MIN_ZOOM = 0.5;
     static constexpr double MAX_ZOOM = 10.0;
     static constexpr double ZOOM_STEP = 1.15;

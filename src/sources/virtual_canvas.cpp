@@ -34,9 +34,16 @@ VirtualCanvas::~VirtualCanvas() {
 
 void VirtualCanvas::setCurrentPage(Page *page) {
   if (!page) return;
+
   bool wasLaserActive = m_isLaserActive;
+
   m_currentPage = page;
   this->setScene(m_currentPage->scene());
+
+  resetTransform();
+  double pageZoom = m_currentPage->getZoomFactor();
+  scale(pageZoom, pageZoom);
+
   createLaserPointer();
   m_isLaserActive = wasLaserActive;
   if (m_laserPointerItem) {
@@ -382,15 +389,27 @@ void VirtualCanvas::keyReleaseEvent(QKeyEvent *event) {
 }
 
 void VirtualCanvas::wheelEvent(QWheelEvent *event) {
-  QPointF mouseBeforeScale = mapToScene(event->pos());
-  double scaleFactor = (event->angleDelta().y() > 0) ? ZOOM_STEP : (1.0 / ZOOM_STEP);
+  if (!m_currentPage) return;
 
-  double currentScale = transform().m11();
-  if ((scaleFactor < 1.0 && currentScale < MIN_ZOOM) || (scaleFactor > 1.0 && currentScale > MAX_ZOOM)) {
+  QPointF mouseBeforeScale = mapToScene(event->pos());
+
+  double currentZoom = m_currentPage->getZoomFactor();
+  double newZoom = currentZoom;
+  
+  if (event->angleDelta().y() > 0) {
+    newZoom = currentZoom * ZOOM_STEP;
+  } else {
+    newZoom = currentZoom / ZOOM_STEP;
+  }
+
+  if (newZoom < MIN_ZOOM || newZoom > MAX_ZOOM) {
     return;
   }
 
+  double scaleFactor = newZoom / currentZoom;
   scale(scaleFactor, scaleFactor);
+
+  m_currentPage->setZoomFactor(newZoom);
 
   QPointF mouseAfterScale = mapToScene(event->pos());
   QPointF delta = mouseAfterScale - mouseBeforeScale;
@@ -398,8 +417,8 @@ void VirtualCanvas::wheelEvent(QWheelEvent *event) {
   QScrollBar *hBar = horizontalScrollBar();
   QScrollBar *vBar = verticalScrollBar();
 
-  hBar->setValue(hBar->value() - delta.x() * transform().m11());
-  vBar->setValue(vBar->value() - delta.y() * transform().m11());
+  hBar->setValue(hBar->value() - static_cast<int>(delta.x() * newZoom));
+  vBar->setValue(vBar->value() - static_cast<int>(delta.y() * newZoom));
   
   event->accept();
 }
