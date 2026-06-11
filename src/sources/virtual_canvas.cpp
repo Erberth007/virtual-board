@@ -35,6 +35,11 @@ VirtualCanvas::~VirtualCanvas() {
 void VirtualCanvas::setCurrentPage(Page *page) {
   if (!page) return;
 
+  if (m_currentPage) {
+    QPointF currentCenter = mapToScene(viewport()->rect().center());
+    m_currentPage->setViewCenter(currentCenter);
+  }
+
   bool wasLaserActive = m_isLaserActive;
 
   m_currentPage = page;
@@ -43,6 +48,12 @@ void VirtualCanvas::setCurrentPage(Page *page) {
   resetTransform();
   double pageZoom = m_currentPage->getZoomFactor();
   scale(pageZoom, pageZoom);
+
+  QPointF targetCenter = m_currentPage->getViewCenter();
+  if (targetCenter.isNull()) {
+    targetCenter = QPointF(0, 0);
+  }
+  centerOn(targetCenter);
 
   createLaserPointer();
   m_isLaserActive = wasLaserActive;

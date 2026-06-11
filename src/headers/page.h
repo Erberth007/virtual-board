@@ -18,6 +18,9 @@ class Page : public QObject {
     double getZoomFactor() const { return m_zoomFactor; }
     void setZoomFactor(double factor) { m_zoomFactor = factor; }
 
+    QPointF getViewCenter() const { return m_viewCenter; }
+    void setViewCenter(const QPointF &center) { m_viewCenter = center; }
+
     // En el futuro, aquí podemos meter métodos de persistencia por página:
     // void saveToFile(const QString &path);
     // void loadFromFile(const QString &path);
@@ -26,6 +29,7 @@ class Page : public QObject {
     QGraphicsScene *m_scene = nullptr;
     QUndoStack *m_undoStack = nullptr;
     double m_zoomFactor = 1.0;
+    QPointF m_viewCenter = QPointF(0, 0);
 };
 
 #endif // PAGE_H
