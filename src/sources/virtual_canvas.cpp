@@ -335,8 +335,7 @@ void VirtualCanvas::keyPressEvent(QKeyEvent *event) {
   }
   // check for activate laser
   else if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
-    m_isLaserActive = !m_isLaserActive;
-    // m_isLaserActive = true;
+    m_isLaserActive = true;
     if (m_laserPointerItem) {
       QPointF scenePos = mapToScene(viewport()->mapFromGlobal(QCursor::pos()));
       m_laserPointerItem->setPos(scenePos);
@@ -360,13 +359,13 @@ void VirtualCanvas::keyReleaseEvent(QKeyEvent *event) {
     }
   }
   // check for laser
-  // else if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
-  //   m_isLaserActive = false;
-  //   if (m_laserPointerItem) {
-  //     m_laserPointerItem->setVisible(false);
-  //     updateCursor();
-  //   }
-  // }
+  else if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
+    m_isLaserActive = false;
+    if (m_laserPointerItem) {
+      m_laserPointerItem->setVisible(false);
+      updateCursor();
+    }
+  }
   else {
     QGraphicsView::keyReleaseEvent(event);
   }
@@ -394,78 +393,6 @@ void VirtualCanvas::wheelEvent(QWheelEvent *event) {
   
   event->accept();
 }
-
-// void VirtualCanvas::wheelEvent(QWheelEvent *event) {
-//   if (!(event->modifiers() & Qt::ControlModifier)) {
-//     QGraphicsView::wheelEvent(event);
-//     return;
-//   }
-
-//   constexpr qreal zoomFactor = 1.15;
-
-//   if (event->angleDelta().y() > 0) {
-//     scale(zoomFactor, zoomFactor);
-//   } else {
-//     scale(1.0 / zoomFactor, 1.0 / zoomFactor);
-//   }
-
-//   event->accept();
-// }
-
-// void VirtualCanvas::wheelEvent(QWheelEvent *event) {
-//   // 1. Obtener la posición del mouse en coordenadas de escena ANTES del zoom
-//   QPointF pointBeforeScale = mapToScene(event->pos());
-
-//   // 2. Definir el factor de escala
-//   double scaleFactor = 1.15;
-//   if (event->angleDelta().y() < 0) {
-//     scaleFactor = 1.0 / scaleFactor;
-//   }
-
-//   // 3. Aplicar el zoom
-//   scale(scaleFactor, scaleFactor);
-
-//   // 4. Obtener la posición del mouse en coordenadas de escena DESPUÉS del zoom
-//   QPointF pointAfterScale = mapToScene(event->pos());
-
-//   // 5. Calcular la diferencia (delta) y desplazar la vista
-//   // Esto es lo que mantiene el punto del cursor "clavado" en el mismo lugar
-//   QPointF delta = pointAfterScale - pointBeforeScale;
-//   horizontalScrollBar()->setValue(horizontalScrollBar()->value() + (delta.x() * transform().m11()));
-//   verticalScrollBar()->setValue(verticalScrollBar()->value() + (delta.y() * transform().m22()));
-
-//   event->accept();
-// }
-
-// void VirtualCanvas::wheelEvent(QWheelEvent *event) {
-//   const double scaleFactor = 1.15;
-    
-//   if (event->angleDelta().y() > 0) {
-//     // Zoom In
-//     scale(scaleFactor, scaleFactor);
-//   } else {
-//     // Zoom Out
-//     scale(1.0 / scaleFactor, 1.0 / scaleFactor);
-//   }
-//   // if (!m_currentPage) return;
-
-//   // double zoomFactor = (event->angleDelta().y() > 0)
-//   //   ? ZOOM_STEP
-//   //   : (1.0 / ZOOM_STEP);
-
-//   // double newZoom = m_zoomFactor * zoomFactor;
-
-//   // if (newZoom < MIN_ZOOM || newZoom > MAX_ZOOM) {
-//   //   event->accept();
-//   //   return;
-//   // }
-
-//   // scale(zoomFactor, zoomFactor);
-
-//   // m_zoomFactor = newZoom;
-
-//   // event->accept();
-// }
 
 void VirtualCanvas::drawBackground(QPainter *painter, const QRectF &rect) {
   QGraphicsView::drawBackground(painter, rect);
