@@ -11,6 +11,7 @@
 class Page;
 class QColor;
 class QMouseEvent;
+class QGraphicsEllipseItem;
 
 class VirtualCanvas : public QGraphicsView {
   Q_OBJECT
@@ -34,6 +35,10 @@ class VirtualCanvas : public QGraphicsView {
 
     void keyPressEvent(QKeyEvent *event) override;
     void keyReleaseEvent(QKeyEvent *event) override;
+
+    // zoom
+    void wheelEvent(QWheelEvent *event) override;
+    void drawBackground(QPainter *painter, const QRectF &rect) override;
 
   private:
     void setupUi();
@@ -66,8 +71,15 @@ class VirtualCanvas : public QGraphicsView {
 
     void updateItemsInteractionFlags(bool enabled);
 
-    bool m_isTemporaryCursorActive = false;
-    // QCursor m_temporaryCursor;
+    QGraphicsEllipseItem *m_laserPointerItem = nullptr;
+    bool m_isLaserActive = false;
+    void createLaserPointer();
+
+    // zoom
+    double m_zoomFactor = 1.0;
+    static constexpr double MIN_ZOOM = 0.5;
+    static constexpr double MAX_ZOOM = 10.0;
+    static constexpr double ZOOM_STEP = 1.15;
 };
 
 #endif // VIRTUAL_CANVAS_H

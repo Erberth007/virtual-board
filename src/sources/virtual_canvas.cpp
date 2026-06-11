@@ -14,6 +14,7 @@
 #include <QKeyEvent>
 #include <cmath>
 #include <QtMath>
+#include <QScrollBar>
 
 #include "../headers/page.h"
 #include "../headers/add_command.h"
@@ -37,6 +38,7 @@ void VirtualCanvas::setCurrentPage(Page *page) {
   if (!page) return;
   m_currentPage = page;
   this->setScene(m_currentPage->scene());
+  createLaserPointer();
 }
 
 void VirtualCanvas::setMode(CanvasMode mode) {
@@ -135,6 +137,11 @@ void VirtualCanvas::pasteFromClipboard(QPointF targetPos) {
 
 // ***************** protected *****************
 void VirtualCanvas::mousePressEvent(QMouseEvent *event) {
+  if (m_isLaserActive) {
+    event->accept();
+    return;
+  }
+
   if (!m_currentPage) return;
   if (event->button() != Qt::LeftButton) return;
   
@@ -189,6 +196,11 @@ void VirtualCanvas::mouseMoveEvent(QMouseEvent *event) {
   bool leftButtonPressed = (event->buttons() & Qt::LeftButton);
   bool isShiftPressed = event->modifiers() & Qt::ShiftModifier;
   QPointF scenePos = mapToScene(event->pos());
+
+  if (m_isLaserActive && m_laserPointerItem) {
+    m_laserPointerItem->setPos(scenePos);
+    return;
+  }
 
   switch (m_currentMode) {
     // case CanvasMode::Hand: {
@@ -248,6 +260,11 @@ void VirtualCanvas::mouseMoveEvent(QMouseEvent *event) {
 }
 
 void VirtualCanvas::mouseReleaseEvent(QMouseEvent *event) {
+  if (m_isLaserActive) {
+    event->accept();
+    return;
+  }
+
   if (!m_currentPage) return;
   if (event->button() != Qt::LeftButton) return;
 
@@ -294,8 +311,6 @@ void VirtualCanvas::mouseReleaseEvent(QMouseEvent *event) {
 }
 
 void VirtualCanvas::keyPressEvent(QKeyEvent *event) {
-  // !event->isAutoRepeat()
-
   // check for special angles: Shift
   if (event->key() == Qt::Key_Shift) {
     if (m_currentPathItem && (m_currentMode == CanvasMode::Rectangle || m_currentMode == CanvasMode::Ellipse)) {
@@ -318,9 +333,18 @@ void VirtualCanvas::keyPressEvent(QKeyEvent *event) {
     QPointF scenePos = mapToScene(mousePosViewport);
     pasteFromClipboard(scenePos);
   }
-  else if (event->key() == Qt::Key_F && !event->isAutoRepeat()) {
-    m_isTemporaryCursorActive = true;
-    updateCursor();
+  // check for activate laser
+  else if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
+    m_isLaserActive = !m_isLaserActive;
+    // m_isLaserActive = true;
+    if (m_laserPointerItem) {
+      QPointF scenePos = mapToScene(viewport()->mapFromGlobal(QCursor::pos()));
+      m_laserPointerItem->setPos(scenePos);
+      m_laserPointerItem->setVisible(m_isLaserActive);
+      m_currentPathItem = nullptr;
+      clearHoverEffect();
+      updateCursor();
+    }
   }
   else {
     QGraphicsView::keyPressEvent(event);
@@ -328,19 +352,137 @@ void VirtualCanvas::keyPressEvent(QKeyEvent *event) {
 }
 
 void VirtualCanvas::keyReleaseEvent(QKeyEvent *event) {
+  // check for special angles: Shift
   if (event->key() == Qt::Key_Shift) {
     if (m_currentPathItem && (m_currentMode == CanvasMode::Rectangle || m_currentMode == CanvasMode::Ellipse)) {
       QPointF scenePos = mapToScene(viewport()->mapFromGlobal(QCursor::pos()));
       recalculateCurrentShape(scenePos, false);
     }
   }
-  else if (event->key() == Qt::Key_F && !event->isAutoRepeat()) {
-    m_isTemporaryCursorActive = false;
-    updateCursor();
-  }
+  // check for laser
+  // else if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
+  //   m_isLaserActive = false;
+  //   if (m_laserPointerItem) {
+  //     m_laserPointerItem->setVisible(false);
+  //     updateCursor();
+  //   }
+  // }
   else {
     QGraphicsView::keyReleaseEvent(event);
   }
+}
+
+void VirtualCanvas::wheelEvent(QWheelEvent *event) {
+  QPointF mouseBeforeScale = mapToScene(event->pos());
+  double scaleFactor = (event->angleDelta().y() > 0) ? ZOOM_STEP : (1.0 / ZOOM_STEP);
+
+  double currentScale = transform().m11();
+  if ((scaleFactor < 1.0 && currentScale < MIN_ZOOM) || (scaleFactor > 1.0 && currentScale > MAX_ZOOM)) {
+    return;
+  }
+
+  scale(scaleFactor, scaleFactor);
+
+  QPointF mouseAfterScale = mapToScene(event->pos());
+  QPointF delta = mouseAfterScale - mouseBeforeScale;
+
+  QScrollBar *hBar = horizontalScrollBar();
+  QScrollBar *vBar = verticalScrollBar();
+
+  hBar->setValue(hBar->value() - delta.x() * transform().m11());
+  vBar->setValue(vBar->value() - delta.y() * transform().m11());
+  
+  event->accept();
+}
+
+// void VirtualCanvas::wheelEvent(QWheelEvent *event) {
+//   if (!(event->modifiers() & Qt::ControlModifier)) {
+//     QGraphicsView::wheelEvent(event);
+//     return;
+//   }
+
+//   constexpr qreal zoomFactor = 1.15;
+
+//   if (event->angleDelta().y() > 0) {
+//     scale(zoomFactor, zoomFactor);
+//   } else {
+//     scale(1.0 / zoomFactor, 1.0 / zoomFactor);
+//   }
+
+//   event->accept();
+// }
+
+// void VirtualCanvas::wheelEvent(QWheelEvent *event) {
+//   // 1. Obtener la posición del mouse en coordenadas de escena ANTES del zoom
+//   QPointF pointBeforeScale = mapToScene(event->pos());
+
+//   // 2. Definir el factor de escala
+//   double scaleFactor = 1.15;
+//   if (event->angleDelta().y() < 0) {
+//     scaleFactor = 1.0 / scaleFactor;
+//   }
+
+//   // 3. Aplicar el zoom
+//   scale(scaleFactor, scaleFactor);
+
+//   // 4. Obtener la posición del mouse en coordenadas de escena DESPUÉS del zoom
+//   QPointF pointAfterScale = mapToScene(event->pos());
+
+//   // 5. Calcular la diferencia (delta) y desplazar la vista
+//   // Esto es lo que mantiene el punto del cursor "clavado" en el mismo lugar
+//   QPointF delta = pointAfterScale - pointBeforeScale;
+//   horizontalScrollBar()->setValue(horizontalScrollBar()->value() + (delta.x() * transform().m11()));
+//   verticalScrollBar()->setValue(verticalScrollBar()->value() + (delta.y() * transform().m22()));
+
+//   event->accept();
+// }
+
+// void VirtualCanvas::wheelEvent(QWheelEvent *event) {
+//   const double scaleFactor = 1.15;
+    
+//   if (event->angleDelta().y() > 0) {
+//     // Zoom In
+//     scale(scaleFactor, scaleFactor);
+//   } else {
+//     // Zoom Out
+//     scale(1.0 / scaleFactor, 1.0 / scaleFactor);
+//   }
+//   // if (!m_currentPage) return;
+
+//   // double zoomFactor = (event->angleDelta().y() > 0)
+//   //   ? ZOOM_STEP
+//   //   : (1.0 / ZOOM_STEP);
+
+//   // double newZoom = m_zoomFactor * zoomFactor;
+
+//   // if (newZoom < MIN_ZOOM || newZoom > MAX_ZOOM) {
+//   //   event->accept();
+//   //   return;
+//   // }
+
+//   // scale(zoomFactor, zoomFactor);
+
+//   // m_zoomFactor = newZoom;
+
+//   // event->accept();
+// }
+
+void VirtualCanvas::drawBackground(QPainter *painter, const QRectF &rect) {
+  QGraphicsView::drawBackground(painter, rect);
+
+  // Guardar el estado del painter
+  painter->save();
+  
+  // Dibujar una línea vertical y horizontal en el origen (0,0)
+  painter->setPen(QPen(Qt::red, 2, Qt::DashLine));
+  painter->drawLine(-50, 0, 50, 0); // Eje X
+  painter->drawLine(0, -50, 0, 50); // Eje Y
+
+  // Dibujar un círculo en el origen (0,0)
+  painter->setBrush(QBrush(Qt::red));
+  painter->drawEllipse(-10, -10, 20, 20); // Círculo de radio 10
+
+  painter->restore();
 }
 
 // ***************** private *****************
@@ -351,18 +493,24 @@ void VirtualCanvas::setupUi() {
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-  setAlignment(Qt::AlignLeft | Qt::AlignTop);
   setFrameStyle(QFrame::NoFrame);
-
   setFocusPolicy(Qt::StrongFocus);
 
   setMouseTracking(true);
   m_eraserStroker.setCapStyle(Qt::RoundCap);
   m_eraserStroker.setJoinStyle(Qt::RoundJoin);
   m_eraserStroker.setCurveThreshold(0.1);
+
+  setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+  setResizeAnchor(QGraphicsView::AnchorUnderMouse);
 }
 
 void VirtualCanvas::updateCursor() {
+  if (m_isLaserActive) {
+    setCursor(Qt::BlankCursor);
+    return;
+  }
+
   int pixmapSize = 64;
   QPixmap pixmap(pixmapSize, pixmapSize);
   pixmap.fill(Qt::transparent);
@@ -375,126 +523,98 @@ void VirtualCanvas::updateCursor() {
 
   QCursor currentCursor;
 
-  if (m_isTemporaryCursorActive) {
-    painter.setPen(Qt::NoPen);
+  painter.setPen(QPen(Qt::black, 1, Qt::DotLine));
+  painter.drawLine(center, 0, center, pixmapSize);
+  painter.drawLine(0, center, pixmapSize, center);
 
-    QColor outer(255, 0, 0, 40);
-    painter.setBrush(outer);
-    int outerRadius = 15;
-    painter.drawEllipse(
-      pixmapSize/2 - outerRadius,
-      pixmapSize/2 - outerRadius,
-      outerRadius * 2,
-      outerRadius * 2
-    );
+  painter.setPen(QPen(m_currentColor, 2));
+  painter.drawEllipse(center - radius, center - radius, radius * 2, radius * 2);
 
-    QColor inner(255, 0, 0, 180);
-    painter.setBrush(inner);
-    int innerRadius = 2 * outerRadius / 3;
-    painter.drawEllipse(
-      pixmapSize/2 - innerRadius,
-      pixmapSize/2 - innerRadius,
-      innerRadius * 2,
-      innerRadius * 2
-    );
+  switch (m_currentMode) {
+    case CanvasMode::Hand: {
+      currentCursor = Qt::OpenHandCursor;
+      break;
+    }
+    case CanvasMode::Selection: {
+      currentCursor = Qt::ArrowCursor;
+      break;
+    }
+    case CanvasMode::Rectangle: {
+      int startX = center + radius + 10;
+      int startY = center + radius + 10;
+      painter.setBrush(m_currentColor);
+      painter.drawRect(startX, startY, 12, 12);
+      currentCursor = QCursor(pixmap, center, center);
+      break;
+    }
+    case CanvasMode::Ellipse: {
+      int startX = center + radius + 10;
+      int startY = center + radius + 10;
+      painter.setBrush(m_currentColor);
+      painter.drawEllipse(startX, startY, 12, 12);
+      currentCursor = QCursor(pixmap, center, center);
+      break;
+    }
+    case CanvasMode::Arrow: {
+      int startX = center + radius + 10;
+      int startY = center + radius + 16;
 
-    currentCursor = QCursor(pixmap, center, center);
-  } else {
-    painter.setPen(QPen(Qt::black, 1, Qt::DotLine));
-    painter.drawLine(center, 0, center, pixmapSize);
-    painter.drawLine(0, center, pixmapSize, center);
+      painter.setPen(QPen(m_currentColor, 3));
+      painter.drawLine(startX, startY, startX + 12, startY);
+      painter.drawLine(startX + 12, startY, startX + 8, startY - 5);
+      painter.drawLine(startX + 12, startY, startX + 8, startY + 5);
+      currentCursor = QCursor(pixmap, center, center);
+      break;
+    }
+    case CanvasMode::Line: {
+      int startX = center + radius + 10;
+      int startY = center + radius + 16;
 
-    painter.setPen(QPen(m_currentColor, 2));
-    painter.drawEllipse(center - radius, center - radius, radius * 2, radius * 2);
-  
-    switch (m_currentMode) {
-      case CanvasMode::Hand: {
-        currentCursor = Qt::OpenHandCursor;
-        break;
-      }
-      case CanvasMode::Selection: {
-        currentCursor = Qt::ArrowCursor;
-        break;
-      }
-      case CanvasMode::Rectangle: {
-        int startX = center + radius + 10;
-        int startY = center + radius + 10;
-        painter.setBrush(m_currentColor);
-        painter.drawRect(startX, startY, 12, 12);
-        currentCursor = QCursor(pixmap, center, center);
-        break;
-      }
-      case CanvasMode::Ellipse: {
-        int startX = center + radius + 10;
-        int startY = center + radius + 10;
-        painter.setBrush(m_currentColor);
-        painter.drawEllipse(startX, startY, 12, 12);
-        currentCursor = QCursor(pixmap, center, center);
-        break;
-      }
-      case CanvasMode::Arrow: {
-        int startX = center + radius + 10;
-        int startY = center + radius + 16;
-  
-        painter.setPen(QPen(m_currentColor, 3));
-        painter.drawLine(startX, startY, startX + 12, startY);
-        painter.drawLine(startX + 12, startY, startX + 8, startY - 5);
-        painter.drawLine(startX + 12, startY, startX + 8, startY + 5);
-        currentCursor = QCursor(pixmap, center, center);
-        break;
-      }
-      case CanvasMode::Line: {
-        int startX = center + radius + 10;
-        int startY = center + radius + 16;
-  
-        painter.setPen(QPen(m_currentColor, 3));
-        painter.drawLine(startX, startY, startX + 12, startY);
-        currentCursor = QCursor(pixmap, center, center);
-        break;
-      }
-      case CanvasMode::Pen: {
-        int startX = center + radius + 10;
-        int startY = center + radius + 16;
-  
-        QPainterPath curveIcon;
-        curveIcon.moveTo(startX, startY);
-        curveIcon.cubicTo(
-          startX + 4, startY - 12,
-          startX + 8, startY + 12,
-          startX + 12, startY
-        );
-        
-        painter.setBrush(Qt::NoBrush);
-        painter.setPen(QPen(m_currentColor, 3));
-        painter.drawPath(curveIcon);
-        currentCursor = QCursor(pixmap, center, center);
-        break;
-      }
-      case CanvasMode::Text: {
-        currentCursor = Qt::IBeamCursor;
-        break;
-      }
-      // case CanvasMode::Image: {
-      //   currentCursor = Qt::ArrowCursor;
-      //   break;
-      // }
-      case CanvasMode::Eraser: {
-        int startX = center + radius + 10;
-        int startY = center + radius + 10;
-  
-        painter.setPen(QPen(Qt::red, 3));
-        painter.drawEllipse(startX, startY, 12, 12);
-        currentCursor = QCursor(pixmap, center, center);
-        break;
-      }
-      default: {
-        currentCursor = Qt::ArrowCursor;
-        break;
-      }
+      painter.setPen(QPen(m_currentColor, 3));
+      painter.drawLine(startX, startY, startX + 12, startY);
+      currentCursor = QCursor(pixmap, center, center);
+      break;
+    }
+    case CanvasMode::Pen: {
+      int startX = center + radius + 10;
+      int startY = center + radius + 16;
+
+      QPainterPath curveIcon;
+      curveIcon.moveTo(startX, startY);
+      curveIcon.cubicTo(
+        startX + 4, startY - 12,
+        startX + 8, startY + 12,
+        startX + 12, startY
+      );
+      
+      painter.setBrush(Qt::NoBrush);
+      painter.setPen(QPen(m_currentColor, 3));
+      painter.drawPath(curveIcon);
+      currentCursor = QCursor(pixmap, center, center);
+      break;
+    }
+    case CanvasMode::Text: {
+      currentCursor = Qt::IBeamCursor;
+      break;
+    }
+    // case CanvasMode::Image: {
+    //   currentCursor = Qt::ArrowCursor;
+    //   break;
+    // }
+    case CanvasMode::Eraser: {
+      int startX = center + radius + 10;
+      int startY = center + radius + 10;
+
+      painter.setPen(QPen(Qt::red, 3));
+      painter.drawEllipse(startX, startY, 12, 12);
+      currentCursor = QCursor(pixmap, center, center);
+      break;
+    }
+    default: {
+      currentCursor = Qt::ArrowCursor;
+      break;
     }
   }
-
-  
 
   painter.end();
   setCursor(currentCursor);
@@ -746,4 +866,32 @@ void VirtualCanvas::updateItemsInteractionFlags(bool enabled) {
   for (QGraphicsItem *item : m_currentPage->scene()->items()) {
     item->setFlags(flags);
   }
+}
+
+void VirtualCanvas::createLaserPointer() {
+  if (!m_currentPage || !m_currentPage->scene()) return;
+
+  if (m_laserPointerItem) return;
+
+  int radius = 12;
+
+  m_laserPointerItem = new QGraphicsEllipseItem(
+    -radius,
+    -radius,
+    radius * 2,
+    radius * 2
+  );
+
+  QColor color(255, 0, 0, 120);
+
+  m_laserPointerItem->setBrush(color);
+  m_laserPointerItem->setPen(Qt::NoPen);
+
+  m_laserPointerItem->setZValue(999999);
+
+  m_laserPointerItem->setVisible(false);
+
+  m_laserPointerItem->setAcceptedMouseButtons(Qt::NoButton);
+
+  m_currentPage->scene()->addItem(m_laserPointerItem);
 }

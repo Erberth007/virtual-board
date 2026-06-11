@@ -6,7 +6,5 @@
 Page::Page(QObject *parent) : QObject(parent) {
   m_scene = new QGraphicsScene(this);
   m_undoStack = new QUndoStack(this);
-
-  QRect screenGeometry = QGuiApplication::primaryScreen()->geometry();
-  m_scene->setSceneRect(0, 0, screenGeometry.width(), screenGeometry.height());
+  m_scene->setSceneRect(-10000, -10000, 20000, 20000);
 }
