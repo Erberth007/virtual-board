@@ -18,7 +18,7 @@ class VirtualCanvas : public QGraphicsView {
 
   public:
     explicit VirtualCanvas(QWidget *parent = nullptr);
-    ~VirtualCanvas() = default;
+    ~VirtualCanvas();
 
     void setCurrentPage(Page *page);
     void setMode(CanvasMode mode);

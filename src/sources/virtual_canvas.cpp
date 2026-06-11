@@ -27,18 +27,26 @@ VirtualCanvas::VirtualCanvas(QWidget *parent) : QGraphicsView(parent) {
   updateCursor();
 }
 
-// VirtualCanvas::~VirtualCanvas() {
-//   if (m_currentPathItem) {
-//     delete m_currentPathItem;
-//     m_currentPathItem = nullptr;
-//   }
-// }
+VirtualCanvas::~VirtualCanvas() {
+  if (m_currentPathItem) delete m_currentPathItem;
+  if (m_laserPointerItem) delete m_laserPointerItem;
+}
 
 void VirtualCanvas::setCurrentPage(Page *page) {
   if (!page) return;
+  bool wasLaserActive = m_isLaserActive;
   m_currentPage = page;
   this->setScene(m_currentPage->scene());
   createLaserPointer();
+  m_isLaserActive = wasLaserActive;
+  if (m_laserPointerItem) {
+    m_laserPointerItem->setVisible(m_isLaserActive);
+    if (m_isLaserActive) {
+      QPointF scenePos = mapToScene(viewport()->mapFromGlobal(QCursor::pos()));
+      m_laserPointerItem->setPos(scenePos);
+      updateCursor();
+    }
+  }
 }
 
 void VirtualCanvas::setMode(CanvasMode mode) {
@@ -335,13 +343,15 @@ void VirtualCanvas::keyPressEvent(QKeyEvent *event) {
   }
   // check for activate laser
   else if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
-    m_isLaserActive = true;
+    m_isLaserActive = !m_isLaserActive;
     if (m_laserPointerItem) {
-      QPointF scenePos = mapToScene(viewport()->mapFromGlobal(QCursor::pos()));
-      m_laserPointerItem->setPos(scenePos);
+      if (m_isLaserActive) {
+        QPointF scenePos = mapToScene(viewport()->mapFromGlobal(QCursor::pos()));
+        m_laserPointerItem->setPos(scenePos);
+        m_currentPathItem = nullptr;
+        clearHoverEffect();
+      }
       m_laserPointerItem->setVisible(m_isLaserActive);
-      m_currentPathItem = nullptr;
-      clearHoverEffect();
       updateCursor();
     }
   }
@@ -358,14 +368,14 @@ void VirtualCanvas::keyReleaseEvent(QKeyEvent *event) {
       recalculateCurrentShape(scenePos, false);
     }
   }
-  // check for laser
-  else if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
-    m_isLaserActive = false;
-    if (m_laserPointerItem) {
-      m_laserPointerItem->setVisible(false);
-      updateCursor();
-    }
-  }
+  // // check for laser
+  // else if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
+  //   m_isLaserActive = false;
+  //   if (m_laserPointerItem) {
+  //     m_laserPointerItem->setVisible(false);
+  //     updateCursor();
+  //   }
+  // }
   else {
     QGraphicsView::keyReleaseEvent(event);
   }
@@ -798,26 +808,20 @@ void VirtualCanvas::updateItemsInteractionFlags(bool enabled) {
 void VirtualCanvas::createLaserPointer() {
   if (!m_currentPage || !m_currentPage->scene()) return;
 
-  if (m_laserPointerItem) return;
+  if (m_laserPointerItem) {
+    if (m_laserPointerItem->scene()) {
+      m_laserPointerItem->scene()->removeItem(m_laserPointerItem);
+    }
+    delete m_laserPointerItem;
+    m_laserPointerItem = nullptr;
+  }
 
   int radius = 12;
-
-  m_laserPointerItem = new QGraphicsEllipseItem(
-    -radius,
-    -radius,
-    radius * 2,
-    radius * 2
-  );
-
-  QColor color(255, 0, 0, 120);
-
-  m_laserPointerItem->setBrush(color);
+  m_laserPointerItem = new QGraphicsEllipseItem(-radius, -radius, radius * 2, radius * 2);
+  m_laserPointerItem->setBrush(QColor(255, 0, 0, 120));
   m_laserPointerItem->setPen(Qt::NoPen);
-
   m_laserPointerItem->setZValue(999999);
-
   m_laserPointerItem->setVisible(false);
-
   m_laserPointerItem->setAcceptedMouseButtons(Qt::NoButton);
 
   m_currentPage->scene()->addItem(m_laserPointerItem);
